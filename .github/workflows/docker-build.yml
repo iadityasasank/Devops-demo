@@ -46,13 +46,10 @@ jobs:
       - uses: actions/checkout@v2
 
       # Step 2: Set repository name to lowercase for Docker
-      - name: Prepare Docker Tags
-        id: prep
+      - name: Lowercase the repo name
         run: |
-          # Convert repository name to lowercase and store in environment
-          echo "REPO_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-          # Create image name
-          echo "IMAGE_NAME=ghcr.io/${{ env.REPO_NAME }}" >> $GITHUB_ENV
+          echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "REPO_NAME=$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       # Step 3: Login to GitHub Container Registry
       - name: Login to GitHub Container Registry
@@ -62,12 +59,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: Build and push Docker image
+      # Step 4: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      # Step 5: Build and push Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: ${{ env.IMAGE_NAME }}:latest
+          tags: ghcr.io/${{ env.REPO_OWNER }}/${{ env.REPO_NAME }}:latest
 
   # Third job: Deploy using GitHub's infrastructure
   deploy:
@@ -83,10 +84,10 @@ jobs:
       - uses: actions/checkout@v2
       
       # Step 2: Get repository name in lowercase
-      - name: Set repository name
+      - name: Lowercase the repo name
         run: |
-          echo "REPO_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-          echo "IMAGE_NAME=ghcr.io/${{ env.REPO_NAME }}" >> $GITHUB_ENV
+          echo "REPO_OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "REPO_NAME=$(echo ${{ github.event.repository.name }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       
       # Step 3: Create GitHub Deployment
       - name: Create GitHub Deployment
@@ -102,7 +103,7 @@ jobs:
         id: deploy
         run: |
           # Pull the latest image
-          docker pull ${{ env.IMAGE_NAME }}:latest
+          docker pull ghcr.io/${{ env.REPO_OWNER }}/${{ env.REPO_NAME }}:latest
           
           # Stop and remove existing container if it exists
           docker rm -f app || true
@@ -111,9 +112,9 @@ jobs:
           docker run -d \
             -p 8080:8080 \
             --name app \
-            ${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.REPO_OWNER }}/${{ env.REPO_NAME }}:latest
           
-          echo "deployment_url=https://${{ env.REPO_NAME }}.github.io" >> $GITHUB_OUTPUT
+          echo "deployment_url=https://${{ env.REPO_OWNER }}.github.io/${{ env.REPO_NAME }}" >> $GITHUB_OUTPUT
           
       # Step 5: Update deployment status
       - name: Update deployment status
