@@ -1,4 +1,10 @@
+stages:
+  - test
+  - build
+  - deploy
+
 run_tests:
+  stage: test
   image: python:3.9-slim-buster
   before_script:
     - apt-get update && apt-get install make
@@ -6,6 +12,7 @@ run_tests:
     - make test
 
 build_image:
+  stage: build
   image: docker:latest
   services:
     - docker:dind
@@ -16,3 +23,8 @@ build_image:
   script:
     - docker build -t $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE:latest
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to $CI_ENVIRONMENT_NAME..."
