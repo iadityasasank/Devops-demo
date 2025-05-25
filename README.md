@@ -1,3 +1,107 @@
+# DevOps Demo Project
+
+![GitHub Actions Workflow Status](https://github.com/iadityasasank/Devops-demo/actions/workflows/docker-build.yml/badge.svg)
+
+This repository demonstrates a basic DevOps pipeline implementation using GitHub Actions, featuring automated testing and Docker container builds.
+
+## Features
+
+- Automated testing with Python
+- Docker container build and push to GitHub Container Registry
+- Continuous Integration/Continuous Deployment (CI/CD) pipeline
+- Automated dependency management
+
+## CI/CD Pipeline
+
+The pipeline consists of two main jobs:
+
+1. **Test Job**
+
+   - Runs on Ubuntu latest
+   - Sets up Python 3.9
+   - Installs dependencies
+   - Executes test suite using `make test`
+
+2. **Build Job**
+   - Builds Docker container
+   - Pushes to GitHub Container Registry (ghcr.io)
+   - Tags images with latest version
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9
+- Docker
+- Make
+
+### Local Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/iadityasasank/Devops-demo.git
+   cd Devops-demo
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   make install  # If you have a Makefile
+   ```
+
+3. Run tests locally:
+   ```bash
+   make test
+   ```
+
+### Docker
+
+Pull the latest image:
+
+```bash
+docker pull ghcr.io/iadityasasank/devops-demo:latest
+```
+
+Run the container:
+
+```bash
+docker run ghcr.io/iadityasasank/devops-demo:latest
+```
+
+## GitHub Actions Workflow
+
+The workflow is triggered on:
+
+- Push to master/main branch
+- Pull requests to master/main branch
+
+### Workflow Steps:
+
+1. **Test Stage**
+
+   - Checkout code
+   - Setup Python environment
+   - Install dependencies
+   - Run test suite
+
+2. **Build Stage**
+   - Authenticate with GitHub Container Registry
+   - Build Docker image
+   - Push to container registry
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 # Python Flask - Demo Web Application
 
 This is a simple Python Flask web application. The app provides system information and a realtime monitoring screen with dials showing CPU, memory, IO and process information.
@@ -108,4 +212,4 @@ make deploy
 
 ## Running in Azure App Service (Windows)
 
-Just don't, it's awful 
+Just don't, it's awful
