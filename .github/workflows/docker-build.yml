@@ -1,47 +1,120 @@
+# Name of the workflow that appears in GitHub Actions UI
 name: Docker Build and Test
 
+# Define when this workflow will run
 on:
   push:
+    # Run workflow when code is pushed to master or main branch
     branches: [master, main]
   pull_request:
+    # Run workflow when a PR is created against master or main
     branches: [master, main]
 
+# Define the jobs to run
 jobs:
+  # First job: Run tests
   test:
+    # Specify the runner environment
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Check out the repository code
       - uses: actions/checkout@v2
+
+      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.9'  # Specify Python version
+
+      # Step 3: Install system dependencies
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y make
-      - name: Run tests
-        run: make test
+          sudo apt-get update  # Update package lists
+          sudo apt-get install -y make  # Install make utility
 
+      # Step 4: Execute tests using make command
+      - name: Run tests
+        run: make test  # Runs the test target from Makefile
+
+  # Second job: Build and push Docker image
   build:
+    # Only run this job after test job succeeds
     needs: test
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Check out the repository code
       - uses: actions/checkout@v2
 
+      # Step 2: Authenticate with GitHub Container Registry
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
+          registry: ghcr.io  # Specify GitHub Container Registry
+          username: ${{ github.actor }}  # Use GitHub user who triggered the workflow
+          password: ${{ secrets.GITHUB_TOKEN }}  # Use automatic GitHub token
+
+      # Step 3: Prepare Docker tags by converting repository name to lowercase
       - name: Prepare Docker Tags
         id: prep
         run: |
+          # Convert GITHUB_REPOSITORY to lowercase and store in REPO env variable
           echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
+      # Step 4: Build and push Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
-          push: true
-          tags: ghcr.io/${{ env.REPO }}:latest
+          push: true  # Enable pushing to registry
+          tags: ghcr.io/${{ env.REPO }}:latest  # Set image tag using lowercase repo name
+
+  # Third job: Deploy to GitHub's infrastructure
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: 
+      name: production
+      url: ${{ steps.deploy.outputs.deployment_url }}  # Will show deployment URL in GitHub UI
+    
+    steps:
+      # Step 1: Check out the repository code
+      - uses: actions/checkout@v2
+      
+      # Step 2: Deploy to GitHub Pages (if it's a static website)
+      - name: Deploy to GitHub Pages
+        if: ${{ contains(github.event.repository.topics, 'static-site') }}  # Only run for static sites
+        uses: actions/deploy-pages@v2
+        
+      # Step 3: Deploy to GitHub Environments using GitHub Deployments API
+      - name: Create GitHub Deployment
+        id: deployment
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: production
+          initial-status: in_progress
+          
+      # Step 4: Pull and run container from GitHub Container Registry
+      - name: Deploy Container
+        id: deploy
+        run: |
+          # Pull the latest image from GitHub Container Registry
+          docker pull ghcr.io/${{ env.REPO }}:latest
+          
+          # Run the container (modify port and env as needed)
+          docker run -d \
+            -p 8080:8080 \
+            --name app \
+            ghcr.io/${{ env.REPO }}:latest
+          
+          echo "deployment_url=https://${{ github.repository }}.github.io" >> $GITHUB_OUTPUT
+          
+      # Step 5: Update deployment status
+      - name: Update deployment status
+        if: always()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment-url: ${{ steps.deploy.outputs.deployment_url }}
+          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
+          state: ${{ job.status }}
